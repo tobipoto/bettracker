@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sportwetten Tracker</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    margin: 0;
+    padding: 20px;
+}
+h1 { text-align: center; }
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+input, select, button {
+    padding: 8px;
+    margin: 5px;
+    border-radius: 6px;
+    border: none;
+}
+
+button {
+    background: #22c55e;
+    color: white;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #334155;
+}
+
+.stats {
+    margin-top: 30px;
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>📊 Sportwetten Tracker</h1>
+
+<div>
+    <input type="date" id="date">
+    <select id="sport">
+        <option>Fußball</option>
+        <option>Tennis</option>
+    </select>
+    <input type="number" step="0.01" id="odds" placeholder="Quote">
+    <input type="number" step="0.01" id="stake" placeholder="Einsatz €">
+    <select id="status">
+        <option value="won">Won</option>
+        <option value="lost">Lost</option>
+    </select>
+    <button onclick="addBet()">Hinzufügen</button>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Datum</th>
+<th>Sport</th>
+<th>Quote</th>
+<th>Einsatz</th>
+<th>Gewinn/Verlust</th>
+</tr>
+</thead>
+<tbody id="betTable"></tbody>
+</table>
+
+<div class="stats">
+<h2>Statistik</h2>
+<p>Gesamtgewinn: <span id="totalProfit">0</span> €</p>
+<p>Gesamteinsätze: <span id="totalStake">0</span> €</p>
+<p>ROI: <span id="roi">0</span> %</p>
+<p>Trefferquote: <span id="hitRate">0</span> %</p>
+</div>
+
+</div>
+
+<script>
+let bets = [];
+
+function addBet() {
+    const date = document.getElementById("date").value;
+    const sport = document.getElementById("sport").value;
+    const odds = parseFloat(document.getElementById("odds").value);
+    const stake = parseFloat(document.getElementById("stake").value);
+    const status = document.getElementById("status").value;
+
+    if (!date || !odds || !stake) return;
+
+    let profit = status === "won" ? (stake * odds - stake) : -stake;
+
+    bets.push({date, sport, odds, stake, profit, status});
+    render();
+}
+
+function render() {
+    const table = document.getElementById("betTable");
+    table.innerHTML = "";
+
+    let totalProfit = 0;
+    let totalStake = 0;
+    let wins = 0;
+
+    bets.forEach(bet => {
+        totalProfit += bet.profit;
+        totalStake += bet.stake;
+        if (bet.status === "won") wins++;
+
+        table.innerHTML += `
+        <tr>
+            <td>${bet.date}</td>
+            <td>${bet.sport}</td>
+            <td>${bet.odds}</td>
+            <td>${bet.stake.toFixed(2)} €</td>
+            <td style="color:${bet.profit>=0?'#22c55e':'#ef4444'}">
+                ${bet.profit.toFixed(2)} €
+            </td>
+        </tr>`;
+    });
+
+    document.getElementById("totalProfit").innerText = totalProfit.toFixed(2);
+    document.getElementById("totalStake").innerText = totalStake.toFixed(2);
+    document.getElementById("roi").innerText = totalStake ? ((totalProfit/totalStake)*100).toFixed(2) : 0;
+    document.getElementById("hitRate").innerText = bets.length ? ((wins/bets.length)*100).toFixed(2) : 0;
+}
+</script>
+
+</body>
+</html>

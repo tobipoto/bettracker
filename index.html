@@ -35,7 +35,7 @@ th,td { padding:10px; text-align:center; border-bottom:1px solid #334155;}
 <option value="won">Won</option>
 <option value="lost">Lost</option>
 </select>
-<button onclick="addBet()">Hinzufügen</button>
+<button id="addBtn">Hinzufügen</button>
 </div>
 
 <table>
@@ -54,40 +54,45 @@ th,td { padding:10px; text-align:center; border-bottom:1px solid #334155;}
 
 <div class="stats">
 <h2>📊 Statistik</h2>
-<p>Gesamtgewinn: <b><span id="totalProfit">0</span> €</b></p>
-<p>🎾 Tennis Gewinn: <b><span id="tennisProfit">0</span> €</b></p>
-<p>⚽ Fußball Gewinn: <b><span id="footballProfit">0</span> €</b></p>
+<p>Gesamtgewinn: <b><span id="totalProfit">540.00</span> €</b></p>
+<p>🎾 Tennis Gewinn: <b><span id="tennisProfit">182.00</span> €</b></p>
+<p>⚽ Fußball Gewinn: <b><span id="footballProfit">358.00</span> €</b></p>
 </div>
 
 </div>
 
 <script>
 
+// 🔒 Fixe Startwerte
 const START_TOTAL = 540;
 const START_TENNIS = 182;
 const START_FOOTBALL = 358;
 
+// ☁️ Supabase Config
 const supabaseUrl = "https://wmhmniauvvmoopdkjbtg.supabase.co";
 const supabaseKey = "sb_publishable_w0f7QQyrPLRHAMMJEIvlcQ_oNFN_QJ2";
 
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-async function loadBets(){
-const { data, error } = await supabase
+// 📥 Laden
+async function loadBets() {
+const { data, error } = await client
 .from("bets")
 .select("*")
 .order("created_at", { ascending: true });
 
 if(error){
 console.error(error);
-alert("Fehler beim Laden: " + error.message);
+alert(error.message);
 return;
 }
 
 render(data || []);
 }
 
-async function addBet(){
+// ➕ Hinzufügen
+async function addBet() {
+
 const date = document.getElementById("date").value;
 const sport = document.getElementById("sport").value;
 const odds = parseFloat(document.getElementById("odds").value);
@@ -99,47 +104,44 @@ alert("Bitte alles ausfüllen");
 return;
 }
 
-let profit = status==="won" ? (stake*odds - stake) : -stake;
+const profit = status==="won" ? (stake*odds - stake) : -stake;
 
-const { error } = await supabase.from("bets").insert([
-{date,sport,odds,stake,profit,status}
+const { error } = await client.from("bets").insert([
+{ date, sport, odds, stake, profit, status }
 ]);
 
 if(error){
-console.error(error);
-alert("Insert Fehler: " + error.message);
+alert(error.message);
 return;
 }
 
 loadBets();
 }
 
+// ❌ Löschen
 async function deleteBet(id){
-const { error } = await supabase.from("bets").delete().eq("id", id);
-
-if(error){
-alert("Delete Fehler: " + error.message);
-return;
-}
-
+await client.from("bets").delete().eq("id", id);
 loadBets();
 }
 
+// 📊 Render
 function render(bets){
-const table = document.getElementById("betTable");
-table.innerHTML="";
 
 let totalProfit = START_TOTAL;
 let tennisProfit = START_TENNIS;
 let footballProfit = START_FOOTBALL;
 
-bets.forEach(b=>{
+const table = document.getElementById("betTable");
+table.innerHTML="";
+
+bets.forEach(b => {
+
 totalProfit += b.profit;
 
 if(b.sport==="Tennis") tennisProfit += b.profit;
 if(b.sport==="Fußball") footballProfit += b.profit;
 
-table.innerHTML+=`
+table.innerHTML += `
 <tr>
 <td>${b.date}</td>
 <td>${b.sport}</td>
@@ -148,16 +150,18 @@ table.innerHTML+=`
 <td style="color:${b.profit>=0?'#22c55e':'#ef4444'}">
 ${b.profit.toFixed(2)} €
 </td>
-<td>
-<button class="delete-btn" onclick="deleteBet('${b.id}')">X</button>
-</td>
-</tr>`;
+<td><button class="delete-btn" onclick="deleteBet('${b.id}')">X</button></td>
+</tr>
+`;
 });
 
-document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
-document.getElementById("tennisProfit").innerText=tennisProfit.toFixed(2);
-document.getElementById("footballProfit").innerText=footballProfit.toFixed(2);
+document.getElementById("totalProfit").innerText = totalProfit.toFixed(2);
+document.getElementById("tennisProfit").innerText = tennisProfit.toFixed(2);
+document.getElementById("footballProfit").innerText = footballProfit.toFixed(2);
+
 }
+
+document.getElementById("addBtn").addEventListener("click", addBet);
 
 loadBets();
 

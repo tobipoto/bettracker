@@ -63,28 +63,30 @@ th,td { padding:10px; text-align:center; border-bottom:1px solid #334155;}
 
 <script>
 
-// 🔒 FIXE STARTWERTE (NICHT ÄNDERBAR)
 const START_TOTAL = 540;
 const START_TENNIS = 182;
 const START_FOOTBALL = 358;
 
-// ☁️ SUPABASE CONFIG
 const supabaseUrl = "https://wmhmniauvvmoopdkjbtg.supabase.co";
 const supabaseKey = "sb_publishable_w0f7QQyrPLRHAMMJEIvlcQ_oNFN_QJ2";
 
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-// 📥 Lade Wetten
 async function loadBets(){
-const { data } = await supabase
+const { data, error } = await supabase
 .from("bets")
 .select("*")
 .order("created_at", { ascending: true });
 
+if(error){
+console.error(error);
+alert("Fehler beim Laden: " + error.message);
+return;
+}
+
 render(data || []);
 }
 
-// ➕ Wette hinzufügen
 async function addBet(){
 const date = document.getElementById("date").value;
 const sport = document.getElementById("sport").value;
@@ -92,24 +94,37 @@ const odds = parseFloat(document.getElementById("odds").value);
 const stake = parseFloat(document.getElementById("stake").value);
 const status = document.getElementById("status").value;
 
-if(!date || !odds || !stake) return;
+if(!date || !odds || !stake){
+alert("Bitte alles ausfüllen");
+return;
+}
 
 let profit = status==="won" ? (stake*odds - stake) : -stake;
 
-await supabase.from("bets").insert([
+const { error } = await supabase.from("bets").insert([
 {date,sport,odds,stake,profit,status}
 ]);
 
+if(error){
+console.error(error);
+alert("Insert Fehler: " + error.message);
+return;
+}
+
 loadBets();
 }
 
-// ❌ Wette löschen
 async function deleteBet(id){
-await supabase.from("bets").delete().eq("id", id);
+const { error } = await supabase.from("bets").delete().eq("id", id);
+
+if(error){
+alert("Delete Fehler: " + error.message);
+return;
+}
+
 loadBets();
 }
 
-// 📊 Statistik rendern
 function render(bets){
 const table = document.getElementById("betTable");
 table.innerHTML="";

@@ -30,21 +30,20 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 <div class="app">
 
 <div class="stats">
-<h1>☁️ BetTracker Pro</h1>
+<h1>☁️ BetTracker</h1>
 
 <div class="card">
-<div>💰 Kontostand: <b><span id="bankroll">590.00</span> €</b></div>
+<div>💰 Kontostand: <b><span id="bankroll">640.00</span> €</b></div>
 <div style="margin-top:6px;">Gesamtgewinn: <b><span id="totalProfit">540.00</span> €</b></div>
 <div>🎾 Tennis: <b><span id="tennisProfit">182.00</span> €</b></div>
 <div>⚽ Fußball: <b><span id="footballProfit">358.00</span> €</b></div>
-<div style="margin-top:8px;">Zeitraum Gewinn: 
+<div style="margin-top:8px;">Heutiger Gewinn: 
 <b><span id="periodProfit">0.00</span> €</b></div>
 </div>
 </div>
 
 <div class="tabs">
 <div class="tab active" data-filter="today">Heute</div>
-<div class="tab" data-filter="yesterday">Gestern</div>
 <div class="tab" data-filter="week">Woche</div>
 <div class="tab" data-filter="all">Alle</div>
 </div>
@@ -70,7 +69,7 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 
 <script>
 
-const START_BANKROLL = 590; // korrigiert
+const START_BANKROLL = 640;
 const START_TOTAL = 540;
 const START_TENNIS = 182;
 const START_FOOTBALL = 358;
@@ -119,11 +118,9 @@ const list = document.getElementById("betList");
 list.innerHTML="";
 
 const today = new Date().toISOString().split("T")[0];
-const yDate = new Date();
-yDate.setDate(yDate.getDate()-1);
-const yesterday = yDate.toISOString().split("T")[0];
 const monday = getMonday(new Date()).toISOString().split("T")[0];
 
+// Bankroll berechnen
 allBets.forEach(b=>{
 
 bankroll -= Number(b.stake);
@@ -138,10 +135,10 @@ if(b.sport==="Tennis") tennisProfit+=b.profit;
 if(b.sport==="Fußball") footballProfit+=b.profit;
 });
 
+// Filter
 let filtered = allBets.filter(b=>{
-if(currentFilter==="today") return b.date===today;
-if(currentFilter==="yesterday") return b.date===yesterday;
-if(currentFilter==="week") return b.date>=monday;
+if(currentFilter==="today") return b.date === today;
+if(currentFilter==="week") return b.date >= monday;
 return true;
 });
 
@@ -179,7 +176,7 @@ const odds = parseFloat(document.getElementById("odds").value);
 const stake = parseFloat(document.getElementById("stake").value);
 const status = document.getElementById("status").value;
 
-if(!date || !odds || !stake){
+if(date === "" || isNaN(odds) || isNaN(stake)){
 alert("Alles ausfüllen");
 return;
 }
@@ -196,6 +193,9 @@ loadBets();
 }
 
 document.getElementById("addBtn").addEventListener("click",addBet);
+
+// Standard-Datum setzen
+document.getElementById("date").value = new Date().toISOString().split("T")[0];
 
 loadBets();
 

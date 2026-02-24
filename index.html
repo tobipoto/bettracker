@@ -110,7 +110,7 @@ let totalProfit = START_TOTAL;
 let tennisProfit = START_TENNIS;
 let footballProfit = START_FOOTBALL;
 let periodProfit = 0;
-let bankroll = START_TOTAL;
+let bankroll = 540; // echtes Startkonto
 
 const list = document.getElementById("betList");
 list.innerHTML="";
@@ -128,11 +128,23 @@ if(currentFilter==="week") return b.date>=monday;
 return true;
 });
 
-allBets.forEach(b=>{
+// WICHTIG: Chronologisch berechnen
+const sorted = [...allBets].sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+sorted.forEach(b=>{
+
+// Einsatz wird vom Konto abgezogen
+bankroll -= b.stake;
+
+// Wenn gewonnen → Auszahlung drauf
+if(b.status==="won"){
+bankroll += b.stake * b.odds;
+}
+
 totalProfit += b.profit;
-bankroll += b.profit;
-if(b.sport==="Tennis") tennisProfit+=b.profit;
-if(b.sport==="Fußball") footballProfit+=b.profit;
+
+if(b.sport==="Tennis") tennisProfit += b.profit;
+if(b.sport==="Fußball") footballProfit += b.profit;
 });
 
 filtered.forEach(b=>{
@@ -159,7 +171,6 @@ document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
 document.getElementById("tennisProfit").innerText=tennisProfit.toFixed(2);
 document.getElementById("footballProfit").innerText=footballProfit.toFixed(2);
 document.getElementById("periodProfit").innerText=periodProfit.toFixed(2);
-
 }
 
 async function addBet(){

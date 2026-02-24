@@ -33,7 +33,7 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 <h1>☁️ BetTracker Pro</h1>
 
 <div class="card">
-<div>💰 Kontostand: <b><span id="bankroll">540.00</span> €</b></div>
+<div>💰 Kontostand: <b><span id="bankroll">590.00</span> €</b></div>
 <div style="margin-top:6px;">Gesamtgewinn: <b><span id="totalProfit">540.00</span> €</b></div>
 <div>🎾 Tennis: <b><span id="tennisProfit">182.00</span> €</b></div>
 <div>⚽ Fußball: <b><span id="footballProfit">358.00</span> €</b></div>
@@ -70,10 +70,7 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 
 <script>
 
-// echtes Startkonto
-const START_BANKROLL = 540;
-
-// historische Gewinne
+const START_BANKROLL = 590; // korrigiert
 const START_TOTAL = 540;
 const START_TENNIS = 182;
 const START_FOOTBALL = 358;
@@ -89,7 +86,7 @@ async function loadBets(){
 const { data } = await client
 .from("bets")
 .select("*")
-.order("date",{ascending:true}); // wichtig chronologisch
+.order("date",{ascending:true});
 allBets = data || [];
 render();
 }
@@ -127,13 +124,10 @@ yDate.setDate(yDate.getDate()-1);
 const yesterday = yDate.toISOString().split("T")[0];
 const monday = getMonday(new Date()).toISOString().split("T")[0];
 
-// echte Bankroll Berechnung
 allBets.forEach(b=>{
 
-// Einsatz wird IMMER abgezogen
 bankroll -= Number(b.stake);
 
-// Wenn gewonnen → Auszahlung drauf
 if(b.status === "won"){
 bankroll += Number(b.stake) * Number(b.odds);
 }
@@ -144,7 +138,6 @@ if(b.sport==="Tennis") tennisProfit+=b.profit;
 if(b.sport==="Fußball") footballProfit+=b.profit;
 });
 
-// Filter für Anzeige
 let filtered = allBets.filter(b=>{
 if(currentFilter==="today") return b.date===today;
 if(currentFilter==="yesterday") return b.date===yesterday;
@@ -176,6 +169,7 @@ document.getElementById("totalProfit").innerText = totalProfit.toFixed(2);
 document.getElementById("tennisProfit").innerText = tennisProfit.toFixed(2);
 document.getElementById("footballProfit").innerText = footballProfit.toFixed(2);
 document.getElementById("periodProfit").innerText = periodProfit.toFixed(2);
+
 }
 
 async function addBet(){

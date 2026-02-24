@@ -43,10 +43,10 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 </div>
 
 <div class="tabs">
-<div class="tab active" onclick="setFilter('today')">Heute</div>
-<div class="tab" onclick="setFilter('yesterday')">Gestern</div>
-<div class="tab" onclick="setFilter('week')">Woche</div>
-<div class="tab" onclick="setFilter('all')">Alle</div>
+<div class="tab active" data-filter="today">Heute</div>
+<div class="tab" data-filter="yesterday">Gestern</div>
+<div class="tab" data-filter="week">Woche</div>
+<div class="tab" data-filter="all">Alle</div>
 </div>
 
 <div class="card">
@@ -61,7 +61,7 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 <option value="won">Gewonnen</option>
 <option value="lost">Verloren</option>
 </select>
-<button class="add-btn" onclick="addBet()">Wette hinzufügen</button>
+<button class="add-btn" id="addBtn">Wette hinzufügen</button>
 </div>
 
 <div id="betList"></div>
@@ -70,6 +70,10 @@ button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;fon
 
 <script>
 
+// echtes Startkonto
+const START_BANKROLL = 540;
+
+// historische Gewinne
 const START_TOTAL = 540;
 const START_TENNIS = 182;
 const START_FOOTBALL = 358;
@@ -85,7 +89,7 @@ async function loadBets(){
 const { data } = await client
 .from("bets")
 .select("*")
-.order("created_at",{ascending:false});
+.order("date",{ascending:true}); // wichtig chronologisch
 allBets = data || [];
 render();
 }
@@ -97,30 +101,50 @@ const diff = d.getDate() - day + (day===0?-6:1);
 return new Date(d.setDate(diff));
 }
 
-function setFilter(filter){
-currentFilter = filter;
+document.querySelectorAll(".tab").forEach(tab=>{
+tab.addEventListener("click",()=>{
 document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-event.target.classList.add("active");
+tab.classList.add("active");
+currentFilter = tab.dataset.filter;
 render();
-}
+});
+});
 
 function render(){
 
+let bankroll = START_BANKROLL;
 let totalProfit = START_TOTAL;
 let tennisProfit = START_TENNIS;
 let footballProfit = START_FOOTBALL;
 let periodProfit = 0;
-let bankroll = 540; // echtes Startkonto
 
 const list = document.getElementById("betList");
 list.innerHTML="";
 
 const today = new Date().toISOString().split("T")[0];
-const yesterdayDate = new Date();
-yesterdayDate.setDate(yesterdayDate.getDate()-1);
-const yesterday = yesterdayDate.toISOString().split("T")[0];
+const yDate = new Date();
+yDate.setDate(yDate.getDate()-1);
+const yesterday = yDate.toISOString().split("T")[0];
 const monday = getMonday(new Date()).toISOString().split("T")[0];
 
+// echte Bankroll Berechnung
+allBets.forEach(b=>{
+
+// Einsatz wird IMMER abgezogen
+bankroll -= Number(b.stake);
+
+// Wenn gewonnen → Auszahlung drauf
+if(b.status === "won"){
+bankroll += Number(b.stake) * Number(b.odds);
+}
+
+totalProfit += b.profit;
+
+if(b.sport==="Tennis") tennisProfit+=b.profit;
+if(b.sport==="Fußball") footballProfit+=b.profit;
+});
+
+// Filter für Anzeige
 let filtered = allBets.filter(b=>{
 if(currentFilter==="today") return b.date===today;
 if(currentFilter==="yesterday") return b.date===yesterday;
@@ -128,27 +152,8 @@ if(currentFilter==="week") return b.date>=monday;
 return true;
 });
 
-// WICHTIG: Chronologisch berechnen
-const sorted = [...allBets].sort((a,b)=> new Date(a.date) - new Date(b.date));
-
-sorted.forEach(b=>{
-
-// Einsatz wird vom Konto abgezogen
-bankroll -= b.stake;
-
-// Wenn gewonnen → Auszahlung drauf
-if(b.status==="won"){
-bankroll += b.stake * b.odds;
-}
-
-totalProfit += b.profit;
-
-if(b.sport==="Tennis") tennisProfit += b.profit;
-if(b.sport==="Fußball") footballProfit += b.profit;
-});
-
 filtered.forEach(b=>{
-periodProfit+=b.profit;
+periodProfit += b.profit;
 
 list.innerHTML+=`
 <div class="bet">
@@ -157,20 +162,20 @@ list.innerHTML+=`
 <div>${b.sport}</div>
 </div>
 <div>Quote: ${b.odds}</div>
-<div>Einsatz: ${b.stake.toFixed(2)} €</div>
+<div>Einsatz: ${Number(b.stake).toFixed(2)} €</div>
 <div class="${b.profit>=0?'green':'red'}">
-${b.profit.toFixed(2)} €
+${Number(b.profit).toFixed(2)} €
 </div>
 <button class="delete-btn" onclick="deleteBet('${b.id}')">Löschen</button>
 </div>
 `;
 });
 
-document.getElementById("bankroll").innerText=bankroll.toFixed(2);
-document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
-document.getElementById("tennisProfit").innerText=tennisProfit.toFixed(2);
-document.getElementById("footballProfit").innerText=footballProfit.toFixed(2);
-document.getElementById("periodProfit").innerText=periodProfit.toFixed(2);
+document.getElementById("bankroll").innerText = bankroll.toFixed(2);
+document.getElementById("totalProfit").innerText = totalProfit.toFixed(2);
+document.getElementById("tennisProfit").innerText = tennisProfit.toFixed(2);
+document.getElementById("footballProfit").innerText = footballProfit.toFixed(2);
+document.getElementById("periodProfit").innerText = periodProfit.toFixed(2);
 }
 
 async function addBet(){
@@ -186,6 +191,7 @@ return;
 }
 
 const profit = status==="won" ? (stake*odds - stake) : -stake;
+
 await client.from("bets").insert([{date,sport,odds,stake,profit,status}]);
 loadBets();
 }
@@ -194,6 +200,8 @@ async function deleteBet(id){
 await client.from("bets").delete().eq("id",id);
 loadBets();
 }
+
+document.getElementById("addBtn").addEventListener("click",addBet);
 
 loadBets();
 

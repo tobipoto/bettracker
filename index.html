@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BetTracker Pro</title>
+<title>BetTracker Cloud</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 body { font-family: Arial; background:#0f172a; color:white; padding:20px;}
@@ -14,22 +16,12 @@ button { background:#22c55e; color:white; cursor:pointer;}
 table { width:100%; margin-top:20px; border-collapse:collapse;}
 th,td { padding:10px; text-align:center; border-bottom:1px solid #334155;}
 .stats { margin-top:30px; background:#1e293b; padding:20px; border-radius:10px;}
-.startbox { background:#1e293b; padding:15px; border-radius:10px; margin-bottom:20px;}
 </style>
 </head>
 <body>
 
 <div class="container">
-<h1>📊 BetTracker Pro</h1>
-
-<div class="startbox">
-<h3>📌 Startwerte (letzte 3 Wochen)</h3>
-<input type="number" id="startProfit" placeholder="Gesamtgewinn bisher €">
-<input type="number" id="startStake" placeholder="Gesamteinsatz bisher €">
-<input type="number" id="startTennis" placeholder="Gewinn Tennis bisher €">
-<input type="number" id="startFootball" placeholder="Gewinn Fußball bisher €">
-<button onclick="saveStartValues()">Speichern</button>
-</div>
+<h1>☁️ BetTracker Cloud</h1>
 
 <div>
 <input type="date" id="date">
@@ -61,11 +53,8 @@ th,td { padding:10px; text-align:center; border-bottom:1px solid #334155;}
 </table>
 
 <div class="stats">
-<h2>📈 Statistik</h2>
+<h2>📊 Statistik</h2>
 <p>Gesamtgewinn: <b><span id="totalProfit">0</span> €</b></p>
-<p>Gesamteinsätze: <b><span id="totalStake">0</span> €</b></p>
-<p>ROI: <b><span id="roi">0</span> %</b></p>
-<hr>
 <p>🎾 Tennis Gewinn: <b><span id="tennisProfit">0</span> €</b></p>
 <p>⚽ Fußball Gewinn: <b><span id="footballProfit">0</span> €</b></p>
 </div>
@@ -74,56 +63,66 @@ th,td { padding:10px; text-align:center; border-bottom:1px solid #334155;}
 
 <script>
 
-let bets = JSON.parse(localStorage.getItem("bets")) || [];
-let startValues = JSON.parse(localStorage.getItem("startValues")) || {
-profit:0, stake:0, tennis:0, football:0
-};
+// 🔒 FIXE STARTWERTE (NICHT ÄNDERBAR)
+const START_TOTAL = 540;
+const START_TENNIS = 182;
+const START_FOOTBALL = 358;
 
-function saveStartValues(){
-startValues = {
-profit: parseFloat(document.getElementById("startProfit").value) || 0,
-stake: parseFloat(document.getElementById("startStake").value) || 0,
-tennis: parseFloat(document.getElementById("startTennis").value) || 0,
-football: parseFloat(document.getElementById("startFootball").value) || 0
-};
-localStorage.setItem("startValues", JSON.stringify(startValues));
-render();
+// ☁️ SUPABASE CONFIG
+const supabaseUrl = "https://wmhmniauvvmoopdkjbtg.supabase.co";
+const supabaseKey = "sb_publishable_w0f7QQyrPLRHAMMJEIvlcQ_oNFN_QJ2";
+
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// 📥 Lade Wetten
+async function loadBets(){
+const { data } = await supabase
+.from("bets")
+.select("*")
+.order("created_at", { ascending: true });
+
+render(data || []);
 }
 
-function addBet(){
+// ➕ Wette hinzufügen
+async function addBet(){
 const date = document.getElementById("date").value;
 const sport = document.getElementById("sport").value;
 const odds = parseFloat(document.getElementById("odds").value);
 const stake = parseFloat(document.getElementById("stake").value);
 const status = document.getElementById("status").value;
+
 if(!date || !odds || !stake) return;
 
 let profit = status==="won" ? (stake*odds - stake) : -stake;
-bets.push({date,sport,odds,stake,profit,status});
-localStorage.setItem("bets", JSON.stringify(bets));
-render();
+
+await supabase.from("bets").insert([
+{date,sport,odds,stake,profit,status}
+]);
+
+loadBets();
 }
 
-function deleteBet(i){
-bets.splice(i,1);
-localStorage.setItem("bets", JSON.stringify(bets));
-render();
+// ❌ Wette löschen
+async function deleteBet(id){
+await supabase.from("bets").delete().eq("id", id);
+loadBets();
 }
 
-function render(){
+// 📊 Statistik rendern
+function render(bets){
 const table = document.getElementById("betTable");
 table.innerHTML="";
 
-let totalProfit = startValues.profit;
-let totalStake = startValues.stake;
-let tennisProfit = startValues.tennis;
-let footballProfit = startValues.football;
+let totalProfit = START_TOTAL;
+let tennisProfit = START_TENNIS;
+let footballProfit = START_FOOTBALL;
 
-bets.forEach((b,i)=>{
-totalProfit+=b.profit;
-totalStake+=b.stake;
-if(b.sport==="Tennis") tennisProfit+=b.profit;
-if(b.sport==="Fußball") footballProfit+=b.profit;
+bets.forEach(b=>{
+totalProfit += b.profit;
+
+if(b.sport==="Tennis") tennisProfit += b.profit;
+if(b.sport==="Fußball") footballProfit += b.profit;
 
 table.innerHTML+=`
 <tr>
@@ -134,18 +133,18 @@ table.innerHTML+=`
 <td style="color:${b.profit>=0?'#22c55e':'#ef4444'}">
 ${b.profit.toFixed(2)} €
 </td>
-<td><button class="delete-btn" onclick="deleteBet(${i})">X</button></td>
+<td>
+<button class="delete-btn" onclick="deleteBet('${b.id}')">X</button>
+</td>
 </tr>`;
 });
 
 document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
-document.getElementById("totalStake").innerText=totalStake.toFixed(2);
-document.getElementById("roi").innerText= totalStake?((totalProfit/totalStake)*100).toFixed(2):0;
 document.getElementById("tennisProfit").innerText=tennisProfit.toFixed(2);
 document.getElementById("footballProfit").innerText=footballProfit.toFixed(2);
 }
 
-render();
+loadBets();
 
 </script>
 </body>

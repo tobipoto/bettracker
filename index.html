@@ -3,94 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BetTracker</title>
-
+<title>BetTracker Pro</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{
-margin:0;
-font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto;
-background:#0f172a;
-color:white;
-}
-
-.app{
-max-width:480px;
-margin:auto;
-padding:15px;
-}
-
-h1{
-font-size:22px;
-margin-bottom:15px;
-}
-
-.card{
-background:#1e293b;
-padding:15px;
-border-radius:14px;
-margin-bottom:15px;
-}
-
-input,select{
-width:100%;
-padding:12px;
-margin-bottom:10px;
-border-radius:10px;
-border:none;
-font-size:16px;
-}
-
-button{
-width:100%;
-padding:14px;
-border:none;
-border-radius:12px;
-font-size:16px;
-font-weight:bold;
-cursor:pointer;
-}
-
-.add-btn{
-background:#22c55e;
-color:white;
-}
-
-.delete-btn{
-background:#ef4444;
-color:white;
-margin-top:10px;
-}
-
-.bet{
-background:#1e293b;
-padding:15px;
-border-radius:14px;
-margin-bottom:10px;
-}
-
-.bet-top{
-display:flex;
-justify-content:space-between;
-margin-bottom:8px;
-font-weight:bold;
-}
-
-.profit{
-font-weight:bold;
-}
-
-.green{color:#22c55e;}
-.red{color:#ef4444;}
-
-.stats{
-position:sticky;
-top:0;
-background:#0f172a;
-padding-bottom:10px;
-z-index:100;
-}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto;background:#0f172a;color:white;}
+.app{max-width:480px;margin:auto;padding:15px;}
+h1{font-size:22px;margin-bottom:10px;}
+.card{background:#1e293b;padding:15px;border-radius:14px;margin-bottom:15px;}
+.tabs{display:flex;gap:8px;margin-bottom:15px;}
+.tab{flex:1;padding:10px;border-radius:10px;background:#334155;text-align:center;cursor:pointer;font-size:14px;}
+.tab.active{background:#22c55e;}
+input,select{width:100%;padding:12px;margin-bottom:10px;border-radius:10px;border:none;font-size:16px;}
+button{width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;}
+.add-btn{background:#22c55e;color:white;}
+.delete-btn{background:#ef4444;color:white;margin-top:10px;}
+.bet{background:#1e293b;padding:15px;border-radius:14px;margin-bottom:10px;}
+.bet-top{display:flex;justify-content:space-between;margin-bottom:8px;font-weight:bold;}
+.green{color:#22c55e;font-weight:bold;}
+.red{color:#ef4444;font-weight:bold;}
+.stats{position:sticky;top:0;background:#0f172a;padding-bottom:10px;z-index:100;}
 </style>
 </head>
 <body>
@@ -98,13 +30,22 @@ z-index:100;
 <div class="app">
 
 <div class="stats">
-<h1>☁️ BetTracker</h1>
+<h1>☁️ BetTracker Pro</h1>
 
 <div class="card">
 <div>Gesamt: <b><span id="totalProfit">540.00</span> €</b></div>
 <div>🎾 Tennis: <b><span id="tennisProfit">182.00</span> €</b></div>
 <div>⚽ Fußball: <b><span id="footballProfit">358.00</span> €</b></div>
+<div style="margin-top:8px;">Zeitraum Gewinn: 
+<b><span id="periodProfit">0.00</span> €</b></div>
 </div>
+</div>
+
+<div class="tabs">
+<div class="tab active" onclick="setFilter('today')">Heute</div>
+<div class="tab" onclick="setFilter('yesterday')">Gestern</div>
+<div class="tab" onclick="setFilter('week')">Woche</div>
+<div class="tab" onclick="setFilter('all')">Alle</div>
 </div>
 
 <div class="card">
@@ -119,7 +60,7 @@ z-index:100;
 <option value="won">Gewonnen</option>
 <option value="lost">Verloren</option>
 </select>
-<button class="add-btn" id="addBtn">Wette hinzufügen</button>
+<button class="add-btn" onclick="addBet()">Wette hinzufügen</button>
 </div>
 
 <div id="betList"></div>
@@ -128,26 +69,96 @@ z-index:100;
 
 <script>
 
-// Fixe Startwerte
 const START_TOTAL = 540;
 const START_TENNIS = 182;
 const START_FOOTBALL = 358;
 
 const supabaseUrl = "https://wmhmniauvvmoopdkjbtg.supabase.co";
 const supabaseKey = "sb_publishable_w0f7QQyrPLRHAMMJEIvlcQ_oNFN_QJ2";
-
 const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+let allBets = [];
+let currentFilter = "today";
 
 async function loadBets(){
 const { data } = await client
 .from("bets")
 .select("*")
 .order("created_at",{ascending:false});
-render(data||[]);
+allBets = data || [];
+render();
+}
+
+function getMonday(date){
+const d = new Date(date);
+const day = d.getDay();
+const diff = d.getDate() - day + (day===0?-6:1);
+return new Date(d.setDate(diff));
+}
+
+function setFilter(filter){
+currentFilter = filter;
+document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+event.target.classList.add("active");
+render();
+}
+
+function render(){
+
+let totalProfit = START_TOTAL;
+let tennisProfit = START_TENNIS;
+let footballProfit = START_FOOTBALL;
+let periodProfit = 0;
+
+const list = document.getElementById("betList");
+list.innerHTML="";
+
+const today = new Date().toISOString().split("T")[0];
+const yesterdayDate = new Date();
+yesterdayDate.setDate(yesterdayDate.getDate()-1);
+const yesterday = yesterdayDate.toISOString().split("T")[0];
+const monday = getMonday(new Date()).toISOString().split("T")[0];
+
+let filtered = allBets.filter(b=>{
+if(currentFilter==="today") return b.date===today;
+if(currentFilter==="yesterday") return b.date===yesterday;
+if(currentFilter==="week") return b.date>=monday;
+return true;
+});
+
+allBets.forEach(b=>{
+totalProfit+=b.profit;
+if(b.sport==="Tennis") tennisProfit+=b.profit;
+if(b.sport==="Fußball") footballProfit+=b.profit;
+});
+
+filtered.forEach(b=>{
+periodProfit+=b.profit;
+
+list.innerHTML+=`
+<div class="bet">
+<div class="bet-top">
+<div>${b.date}</div>
+<div>${b.sport}</div>
+</div>
+<div>Quote: ${b.odds}</div>
+<div>Einsatz: ${b.stake.toFixed(2)} €</div>
+<div class="${b.profit>=0?'green':'red'}">
+${b.profit.toFixed(2)} €
+</div>
+<button class="delete-btn" onclick="deleteBet('${b.id}')">Löschen</button>
+</div>
+`;
+});
+
+document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
+document.getElementById("tennisProfit").innerText=tennisProfit.toFixed(2);
+document.getElementById("footballProfit").innerText=footballProfit.toFixed(2);
+document.getElementById("periodProfit").innerText=periodProfit.toFixed(2);
+
 }
 
 async function addBet(){
-
 const date = document.getElementById("date").value;
 const sport = document.getElementById("sport").value;
 const odds = parseFloat(document.getElementById("odds").value);
@@ -160,7 +171,6 @@ return;
 }
 
 const profit = status==="won" ? (stake*odds - stake) : -stake;
-
 await client.from("bets").insert([{date,sport,odds,stake,profit,status}]);
 loadBets();
 }
@@ -169,44 +179,6 @@ async function deleteBet(id){
 await client.from("bets").delete().eq("id",id);
 loadBets();
 }
-
-function render(bets){
-
-let totalProfit = START_TOTAL;
-let tennisProfit = START_TENNIS;
-let footballProfit = START_FOOTBALL;
-
-const list = document.getElementById("betList");
-list.innerHTML="";
-
-bets.forEach(b=>{
-
-totalProfit += b.profit;
-if(b.sport==="Tennis") tennisProfit += b.profit;
-if(b.sport==="Fußball") footballProfit += b.profit;
-
-list.innerHTML+=`
-<div class="bet">
-<div class="bet-top">
-<div>${b.date}</div>
-<div>${b.sport}</div>
-</div>
-<div>Quote: ${b.odds}</div>
-<div>Einsatz: ${b.stake.toFixed(2)} €</div>
-<div class="profit ${b.profit>=0?'green':'red'}">
-${b.profit.toFixed(2)} €
-</div>
-<button class="delete-btn" onclick="deleteBet('${b.id}')">Löschen</button>
-</div>
-`;
-});
-
-document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
-document.getElementById("tennisProfit").innerText=tennisProfit.toFixed(2);
-document.getElementById("footballProfit").innerText=footballProfit.toFixed(2);
-}
-
-document.getElementById("addBtn").addEventListener("click",addBet);
 
 loadBets();
 
